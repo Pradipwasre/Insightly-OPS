@@ -1,0 +1,47 @@
+# Prometheus alert rules for the Insightly API.
+# Local: loaded by Prometheus (rule_files). EKS: deploy_eks.sh wraps this file in a
+# PrometheusRule so kube-prometheus-stack loads it and Alertmanager routes the alerts.
+groups:
+  - name: insightly.rules
+    rules:
+      - alert: InsightlyApiDown
+        expr: up{job=~".*insightly-api.*"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Insightly API is not answering /metrics"
+          description: "Prometheus could not scrape {{ $labels.instance }} for 2 minutes."
+
+      - alert: InsightlyHighErrorRate
+        expr: |
+          sum(rate(insightly_requests_total{status="error"}[5m]))
+            / clamp_min(sum(rate(insightly_requests_total[5m])), 0.001) > 0.10
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 10% of chat requests fail"
+
+      - alert: InsightlySlowAnswers
+        expr: histogram_quantile(0.95, sum by (le) (rate(insightly_request_latency_seconds_bucket[10m]))) > 45
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 answer time above 45 s"
+
+      - alert: InsightlyGuardrailSpike
+        expr: sum(increase(insightly_guardrail_blocks_total[10m])) > 25
+        labels: { severity: warning }
+        annotations:
+          summary: "Guardrails blocked {{ $value | printf \"%.0f\" }} requests in 10 minutes (possible prompt-injection attack)"
+
+      - alert: InsightlySqlErrorsHigh
+        expr: sum(increase(insightly_sql_errors_total[15m])) > 30
+        labels: { severity: info }
+        annotations:
+          summary: "Agents hit many SQL errors (schema change or prompt regression?)"
+
+      - alert: InsightlyLlmCostHigh
+        expr: sum(increase(insightly_llm_cost_usd_total[24h])) > 5
+        labels: { severity: warning }
+        annotations:
+          summary: "LLM spend above $5 in the last 24 hours"

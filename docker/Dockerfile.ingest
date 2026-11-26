@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1
+# One-shot job: download the CSVs from S3 and load them into PostgreSQL (RDS).
+#   docker build -f docker/Dockerfile.ingest -t insightly-ingest .
+ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim
+FROM ${PYTHON_IMAGE}
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1 APP_ENV=prod
+WORKDIR /app
+
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    grep -E '^(python-dotenv|boto3|psycopg\[binary\]|psycopg-pool|sqlalchemy|pydantic)==' requirements.txt > ingest-requirements.txt && \
+    pip install --retries 10 --timeout 60 -r ingest-requirements.txt
+
+RUN useradd --uid 10001 --create-home insightly
+COPY app/__init__.py app/config.py app/db.py app/storage.py app/ingest.py ./app/
+USER 10001
+CMD ["python", "-m", "app.ingest", "--from-s3"]

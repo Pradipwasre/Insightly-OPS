@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+# Streamlit web app. Talks to the API at $API_URL.
+#   docker build -f docker/Dockerfile.ui -t insightly-ui .
+ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim
+FROM ${PYTHON_IMAGE}
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false STREAMLIT_SERVER_HEADLESS=true \
+    STREAMLIT_THEME_BASE=light STREAMLIT_THEME_PRIMARY_COLOR="#C96442" \
+    STREAMLIT_THEME_BACKGROUND_COLOR="#FAF9F5" STREAMLIT_THEME_SECONDARY_BACKGROUND_COLOR="#F0EEE6" \
+    STREAMLIT_THEME_TEXT_COLOR="#1F1E1D" API_URL=http://insightly-api:8000
+WORKDIR /app
+
+# Only the UI's libraries, at the exact versions pinned in requirements.txt
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    grep -E '^(streamlit|requests|plotly)==' requirements.txt > ui-requirements.txt && \
+    pip install --retries 10 --timeout 60 -r ui-requirements.txt
+
+RUN useradd --uid 10001 --create-home insightly
+COPY ui ./ui
+USER 10001
+
+EXPOSE 8501
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"
+CMD ["streamlit", "run", "ui/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

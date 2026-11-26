@@ -1,36 +1,94 @@
-services:
-  api:                                           # FastAPI + the agents
-    build: .
-    image: insightly-lite
-    ports:
-      - "${API_PORT:-8000}:8000"
-    env_file:
-      - path: .env
-        required: false
-    volumes:
-      - ./data:/code/data                        # shop.db + memory.db live here, so they survive restarts
-      - "./data files:/code/data files:ro"       # your CSV files, read-only
-      - ./evals:/code/evals                      # eval results are written back to your folder
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 10s
-      retries: 3
-      start_period: 600s                         # the first start loads the CSVs (a few minutes)
+# Run the whole stack on your laptop, like it runs on AWS.
+#
+#   docker compose up -d --build                          # api + ui on SQLite        -> http://localhost:8501
+#   docker compose --profile postgres up -d --build       # + PostgreSQL (like RDS) + ingest job
+#   docker compose --profile monitoring up -d             # + Prometheus (9090) + Grafana (3000)
+#
+# Secrets come from .env (never baked into images).
+x-app-env: &app-env
+  APP_ENV: local
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-}
+  AWS_REGION: ${AWS_REGION:-ap-south-1}
+  S3_BUCKET: ${S3_BUCKET:-}
+  CLOUDWATCH_ENABLED: ${CLOUDWATCH_ENABLED:-false}
 
-  ui:                                            # Streamlit web app
-    image: insightly-lite                        # reuses the image the api service builds (no second build)
-    pull_policy: never                           # it's a local image, never look for it on Docker Hub
-    command: streamlit run ui/app.py --server.port=8501 --server.address=0.0.0.0
-    ports:
-      - "${UI_PORT:-8501}:8501"
+services:
+  api:
+    build: { context: ., dockerfile: docker/Dockerfile.api }
+    image: insightly-api:local
+    ports: ["${API_PORT:-8000}:8000"]
+    environment:
+      <<: *app-env
+      DATA_DIR: /app/data
+      CSV_DIR: /app/raw
+      AUTO_INGEST: "true"
+      # With --profile postgres, set in .env:  COMPOSE_DATABASE_URL=postgresql://insightly:insightly@postgres:5432/insightly
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:-sqlite:////app/data/shop.db}
+      MEMORY_URL: ${COMPOSE_MEMORY_URL:-sqlite:////app/data/memory.db}
+    volumes:
+      - ${DATA_HOST_DIR:-./data}:/app/data          # shop.db + memory.db survive restarts
+      - ${CSV_HOST_DIR:-./data/raw}:/app/raw:ro     # your CSV files, read-only
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 10s
+      retries: 6
+      start_period: 900s      # the first start loads the full CSVs into SQLite (a few minutes)
+
+  ui:
+    build: { context: ., dockerfile: docker/Dockerfile.ui }
+    image: insightly-ui:local
+    ports: ["${UI_PORT:-8501}:8501"]
     environment:
       API_URL: http://api:8000
-      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
-      STREAMLIT_THEME_BASE: light
-      STREAMLIT_THEME_PRIMARY_COLOR: "#C96442"
-      STREAMLIT_THEME_BACKGROUND_COLOR: "#FAF9F5"
-      STREAMLIT_THEME_SECONDARY_BACKGROUND_COLOR: "#F0EEE6"
-      STREAMLIT_THEME_TEXT_COLOR: "#1F1E1D"
     depends_on:
-      api:
-        condition: service_healthy
+      api: { condition: service_healthy }
+
+  postgres:                    # stand-in for Amazon RDS
+    profiles: [postgres]
+    image: public.ecr.aws/docker/library/postgres:17
+    environment:
+      POSTGRES_USER: insightly
+      POSTGRES_PASSWORD: insightly
+      POSTGRES_DB: insightly
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U insightly"]
+      interval: 5s
+      retries: 10
+
+  ingest:                      # the same job the EKS cluster runs, reading local CSVs instead of S3
+    profiles: [postgres]
+    build: { context: ., dockerfile: docker/Dockerfile.ingest }
+    image: insightly-ingest:local
+    command: ["python", "-m", "app.ingest", "--csv-dir", "/app/raw"]
+    environment:
+      DATABASE_URL: postgresql://insightly:insightly@postgres:5432/insightly
+      DB_READONLY_USER: insightly_ro
+      DB_READONLY_PASSWORD: insightly_ro
+    volumes:
+      - ${CSV_HOST_DIR:-./data/raw}:/app/raw:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:v3.7.3
+    ports: ["9090:9090"]
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alertmanager/alerts.yml:/etc/prometheus/alerts.yml:ro
+
+  grafana:
+    profiles: [monitoring]
+    image: grafana/grafana:12.3.0
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+volumes:
+  pgdata:

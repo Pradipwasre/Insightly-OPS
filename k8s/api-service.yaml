@@ -1,0 +1,12 @@
+# Internal only: the UI and Prometheus reach the API inside the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: insightly-api
+  namespace: insightly
+  labels: { app: insightly-api }
+spec:
+  type: ClusterIP
+  selector: { app: insightly-api }
+  ports:
+    - { name: http, port: 8000, targetPort: http }

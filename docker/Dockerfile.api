@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+# FastAPI + LangGraph agents. Build from the project root:
+#   docker build -f docker/Dockerfile.api -t insightly-api .
+# Base image from AWS's public mirror of Docker Official Images (no Docker Hub rate limits).
+ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim
+FROM ${PYTHON_IMAGE}
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    APP_ENV=prod DATA_DIR=/app/data
+WORKDIR /app
+
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --retries 10 --timeout 60 -r requirements.txt
+
+# Non-root user (Kubernetes runAsNonRoot)
+RUN useradd --uid 10001 --create-home insightly && mkdir -p /app/data && chown -R insightly /app/data
+COPY app ./app
+COPY tests ./tests
+COPY evals ./evals
+COPY pytest.ini ruff.toml ./
+USER 10001
+
+EXPOSE 8000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+# One worker per pod; Kubernetes (HPA) adds pods for more traffic
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]

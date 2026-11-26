@@ -1,0 +1,51 @@
+# Loads s3://$S3_BUCKET/raw/*.csv into RDS PostgreSQL, then creates the read-only user.
+# Re-run after uploading new CSVs:   make ingest-eks
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: insightly-ingest
+  namespace: insightly
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: insightly-ingest-${IMAGE_TAG}
+  namespace: insightly
+  labels: { app: insightly-ingest }
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 3600
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: { app: insightly-ingest }
+    spec:
+      serviceAccountName: insightly-ingest
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: ingest
+          image: ${ECR_REGISTRY}/insightly-ingest:${IMAGE_TAG}
+          args: ["python", "-m", "app.ingest", "--from-s3"]
+          envFrom:
+            - configMapRef: { name: insightly-config }
+          env:
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: insightly-secrets, key: ADMIN_DATABASE_URL } } }
+            - { name: DB_READONLY_PASSWORD, valueFrom: { secretKeyRef: { name: insightly-secrets, key: DB_READONLY_PASSWORD } } }
+            - { name: TMPDIR, value: /work }
+            - { name: DATA_DIR, value: /work/data }
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits: { cpu: "2", memory: 2Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: work, mountPath: /work }
+      volumes:
+        - name: work
+          emptyDir: { sizeLimit: 4Gi }   # the raw CSVs are ~530 MB

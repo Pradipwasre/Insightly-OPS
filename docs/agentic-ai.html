@@ -1,492 +1,108 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Insightly Agentic AI</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>Insightly AWS: How the agents work</title>
 <style>
-  :root {
-    --bg: #FAF9F5; --surface: #FFFFFF; --sand: #F0EEE6; --ink: #141413; --muted: #6B6A63;
-    --line: #E6E3D9; --accent: #D97757; --accent-ink: #B4532F; --accent-soft: #F7E7DF;
-    --blue: #3B6EA8; --blue-soft: #E5EDF6; --green: #4E8A52; --green-soft: #E5F0E3;
-    --code-bg: #1F1E1D; --code-ink: #EDEAE0;
-    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
-    --sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #1F1E1D; --surface: #262624; --sand: #2E2D2A; --ink: #F0EEE6; --muted: #A8A69C;
-      --line: #3A3935; --accent: #E08A6D; --accent-ink: #F0A488; --accent-soft: #3A2A23;
-      --blue: #82A9D8; --blue-soft: #233041; --green: #8CC38F; --green-soft: #243325;
-      --code-bg: #161514; --code-ink: #EDEAE0;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #1F1E1D; --surface: #262624; --sand: #2E2D2A; --ink: #F0EEE6; --muted: #A8A69C;
-    --line: #3A3935; --accent: #E08A6D; --accent-ink: #F0A488; --accent-soft: #3A2A23;
-    --blue: #82A9D8; --blue-soft: #233041; --green: #8CC38F; --green-soft: #243325;
-    --code-bg: #161514; --code-ink: #EDEAE0;
-  }
+  :root { --ink:#1F1E1D; --muted:#6B6A64; --line:#E3E0D6; --bg:#FAF9F5; --card:#FFFFFF; --accent:#C96442; --green:#5A8F5A; --red:#A33A3A; }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 var(--sans); }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 56px 16px 96px; }
-  a { color: var(--accent-ink); }
-  h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; }
-  h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.05; margin: 18px 0 14px; }
-  h2 { font-size: 30px; margin: 0 0 6px; }
-  h3 { font-size: 19px; margin: 0 0 6px; }
-  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); }
-  .lead { font-size: 19px; color: var(--muted); max-width: 720px; margin: 0; }
-  .sub { color: var(--muted); margin: 0 0 24px; max-width: 720px; }
-  .mark { display: inline-flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 18px; }
-  .mark svg { color: var(--accent); }
-  nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
-  nav a { color: var(--ink); text-decoration: none; font-size: 14px; background: var(--surface);
-          border: 1px solid var(--line); padding: 6px 13px; border-radius: 99px; }
-  nav a:hover { border-color: var(--accent); color: var(--accent-ink); }
-  section { margin-top: 72px; }
-  .doc-switch { margin-top: 14px; font-size: 14px; color: var(--muted); }
-
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 32px; }
-  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
-  .stat b { display: block; font-family: var(--serif); font-size: 30px; line-height: 1.1; color: var(--accent-ink); }
-  .stat span { color: var(--muted); font-size: 14px; }
-
-  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px; }
-  .diagram svg { width: 100%; height: auto; display: block; }
-  .diagram text { font-family: var(--sans); }
-  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; font-size: 13px; color: var(--muted); }
-  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-
-  .tree { font-family: var(--mono); font-size: 14px; line-height: 1.9; margin: 0; }
-  .tree .row { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 16px; border-bottom: 1px dashed var(--line); }
-  .tree .row:last-child { border-bottom: 0; }
-  .tree .name { white-space: pre; color: var(--ink); }
-  .tree .name.dir { color: var(--accent-ink); font-weight: 500; }
-  .tree .what { font-family: var(--sans); color: var(--muted); font-size: 14px; }
-  .tag { font-family: var(--sans); font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; margin-left: 6px; vertical-align: 1px; }
-  .tag.new { background: var(--accent-soft); color: var(--accent-ink); }
-  .tag.gen { background: var(--sand); color: var(--muted); }
-
-  .steps { counter-reset: s; display: grid; gap: 0; }
-  .step { display: grid; grid-template-columns: 48px 1fr; gap: 18px; }
-  .rail { display: flex; flex-direction: column; align-items: center; }
-  .dot { counter-increment: s; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
-         background: var(--accent); color: #fff; font-weight: 600; font-size: 15px; flex: none; }
-  .dot::before { content: counter(s); }
-  .bar { width: 2px; flex: 1; background: var(--line); margin: 4px 0; }
-  .step:last-child .bar { display: none; }
-  .step .body { padding-bottom: 26px; }
-  .step p { margin: 2px 0 8px; color: var(--muted); }
-  .file { font: 12.5px var(--mono); background: var(--sand); color: var(--ink); padding: 2px 8px; border-radius: 6px; white-space: nowrap; display: inline-block; margin: 2px 4px 2px 0; }
-
-  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; }
-  .card p { margin: 0; color: var(--muted); font-size: 15px; }
-  .card .k { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--accent-ink); margin-bottom: 6px; }
-
-  .pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-  .pipe { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; position: relative; }
-  .pipe b { display: block; font-size: 15px; }
-  .pipe span { color: var(--muted); font-size: 13.5px; }
-
-  table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  .table { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow-x: auto; }
-  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: var(--sand); }
-  tr:last-child td { border-bottom: 0; }
-  code { font: 13px var(--mono); background: var(--sand); padding: 1px 6px; border-radius: 5px; }
-
-  .tabs { display: inline-flex; background: var(--sand); padding: 4px; border-radius: 12px; margin-bottom: 18px; }
-  .tabs button { font: 600 15px var(--sans); border: 0; background: transparent; color: var(--muted); padding: 8px 20px; border-radius: 9px; cursor: pointer; }
-  .tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-  .os { display: none; } .os.show { display: block; }
-  .cmd { margin-bottom: 20px; }
-  .cmd h3 { font-family: var(--sans); font-size: 15px; font-weight: 600; margin: 0 0 4px; }
-  .cmd p { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
-  pre { position: relative; margin: 0; background: var(--code-bg); color: var(--code-ink); border-radius: 12px;
-        padding: 14px 16px; overflow-x: auto; font: 13.5px/1.7 var(--mono); }
-  .copy { position: absolute; top: 8px; right: 8px; font: 12px var(--sans); cursor: pointer; color: #ddd;
-          background: #ffffff14; border: 1px solid #ffffff26; border-radius: 6px; padding: 3px 10px; }
-  .copy:hover { background: #ffffff26; }
-  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 12px 12px 0; font-size: 15px; margin-top: 16px; }
-  footer { margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-  @media (max-width: 640px) {
-    .tree .row { grid-template-columns: 1fr; gap: 0; padding: 6px 0; }
-    .wrap { padding-top: 32px; }
-  }
-
-  .agent-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-  .agent { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 10px; }
-  .agent header { display: flex; align-items: center; gap: 12px; }
-  .agent .ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-ink); flex: none; }
-  .agent h3 { margin: 0; }
-  .agent .role { margin: 0; color: var(--muted); font-size: 15px; }
-  .io { display: grid; grid-template-columns: 74px 1fr; gap: 6px 10px; font-size: 14px; margin: 0; }
-  .io dt { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
-  .io dd { margin: 0; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font: 12.5px var(--mono); background: var(--sand); padding: 2px 8px; border-radius: 6px; }
-  .agent .foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
-  .agent .foot b { color: var(--ink); }
-  details.prompt { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
-  details.prompt summary { cursor: pointer; padding: 14px 18px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  details.prompt summary::-webkit-details-marker { display: none; }
-  details.prompt summary::after { content: "+"; font-size: 20px; color: var(--accent-ink); }
-  details.prompt[open] summary::after { content: "–"; }
-  details.prompt summary small { font-weight: 400; color: var(--muted); font-size: 13px; }
-  details.prompt .inner { padding: 0 18px 18px; }
-  details.prompt .vars { font-size: 13.5px; color: var(--muted); margin: 0 0 10px; }
-  pre.prompt-text { white-space: pre-wrap; }
-  .trace { display: grid; gap: 10px; }
-  .t-row { display: grid; grid-template-columns: 120px 1fr; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; align-items: start; }
-  .t-row .who { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--accent-ink); padding-top: 3px; }
-  .t-row .what { font-size: 14.5px; }
-  .t-row .what code { white-space: pre-wrap; display: block; margin-top: 6px; padding: 8px 10px; }
-  .calc { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; align-items: end; }
-  .calc label { font-size: 14px; font-weight: 600; display: block; margin-bottom: 6px; }
-  .calc input[type=range] { width: 100%; accent-color: var(--accent); }
-  .calc output { font-family: var(--serif); font-size: 34px; color: var(--accent-ink); line-height: 1.1; }
-  .calc .hint { font-size: 13px; color: var(--muted); }
-  .bars { display: grid; gap: 10px; margin-top: 6px; }
-  .bar-row { display: grid; grid-template-columns: 90px 1fr 70px; gap: 12px; align-items: center; font-size: 14px; }
-  .bar-track { background: var(--sand); border-radius: 99px; height: 12px; overflow: hidden; }
-  .bar-fill { height: 100%; background: var(--accent); border-radius: 99px; }
-  .score { font-family: var(--serif); font-size: 26px; color: var(--accent-ink); }
-  @media (max-width: 640px) { .t-row { grid-template-columns: 1fr; gap: 4px; } .bar-row { grid-template-columns: 70px 1fr 60px; } }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.65 -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
+  h1 { font-size: 2.2rem; margin: 0 0 6px; }
+  h2 { font-size: 1.4rem; margin: 44px 0 10px; }
+  .lede { color: var(--muted); font-size: 1.08rem; max-width: 760px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  svg text { font-family: -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); font-size: 0.94rem; }
+  th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #F3F1EA; }
+  code { background: #F0EEE6; padding: 1px 6px; border-radius: 5px; font-size: 0.88em; }
+  pre { background: #1F1E1D; color: #F0EEE6; padding: 16px; border-radius: 10px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .kpi b { display: block; font-size: 1.6rem; font-family: Georgia, serif; font-weight: 500; }
+  .kpi span { color: var(--muted); font-size: 0.85rem; }
 </style>
 </head>
 <body>
-<div class="wrap">
+<main>
+  <h1>How the agents work</h1>
+  <p class="lede">One LangGraph graph: two guardrail nodes that never call an LLM, a cheap router, three specialist
+  agents with tools, and a memory node. Every step is checkpointed per conversation, in SQLite on your laptop
+  and PostgreSQL on EKS.</p>
 
-<header>
-  <div class="mark">
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M12 7.5v4M12 11.5L6.5 16M12 11.5l5.5 4.5"/></svg>
-    Insightly Lite
+  <div class="card">
+  <svg viewBox="0 0 940 330" width="100%" role="img" aria-label="Agent graph">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8A887F"/></marker></defs>
+    <g font-size="13" text-anchor="middle">
+      <circle cx="40" cy="150" r="22" fill="#F0EEE6" stroke="#CFCBBE"/><text x="40" y="155">start</text>
+      <rect x="90" y="122" width="112" height="56" rx="10" fill="#FBEAEA" stroke="#D99A9A"/><text x="146" y="146" font-weight="600">guard_in</text><text x="146" y="164" font-size="11" fill="#6B6A64">no LLM</text>
+      <rect x="236" y="122" width="104" height="56" rx="10" fill="#fff" stroke="#CFCBBE"/><text x="288" y="146" font-weight="600">router</text><text x="288" y="164" font-size="11" fill="#6B6A64">Haiku · structured</text>
+      <rect x="380" y="30" width="130" height="56" rx="10" fill="#fff" stroke="#C96442" stroke-width="1.6"/><text x="445" y="54" font-weight="600">analyst</text><text x="445" y="72" font-size="11" fill="#6B6A64">numbers via SQL</text>
+      <rect x="380" y="122" width="130" height="56" rx="10" fill="#fff" stroke="#C96442" stroke-width="1.6"/><text x="445" y="146" font-weight="600">chart_maker</text><text x="445" y="164" font-size="11" fill="#6B6A64">Plotly charts</text>
+      <rect x="380" y="214" width="130" height="56" rx="10" fill="#fff" stroke="#CFCBBE"/><text x="445" y="238" font-weight="600">chat</text><text x="445" y="256" font-size="11" fill="#6B6A64">greetings, help</text>
+      <rect x="560" y="76" width="130" height="56" rx="10" fill="#F2F7F1" stroke="#A9C7A9"/><text x="625" y="100" font-weight="600">tools</text><text x="625" y="118" font-size="11" fill="#6B6A64">schema · metric · sql · chart</text>
+      <rect x="560" y="196" width="112" height="56" rx="10" fill="#FBEAEA" stroke="#D99A9A"/><text x="616" y="220" font-weight="600">guard_out</text><text x="616" y="238" font-size="11" fill="#6B6A64">PII · leak canary</text>
+      <rect x="712" y="196" width="104" height="56" rx="10" fill="#fff" stroke="#CFCBBE"/><text x="764" y="220" font-weight="600">memory</text><text x="764" y="238" font-size="11" fill="#6B6A64">summary</text>
+      <circle cx="880" cy="224" r="22" fill="#F0EEE6" stroke="#CFCBBE"/><text x="880" y="229">end</text>
+      <text x="146" y="300" font-size="12" fill="#A33A3A">blocked → refusal, $0</text>
+    </g>
+    <g stroke="#8A887F" stroke-width="1.5" fill="none" marker-end="url(#a)">
+      <path d="M62 150 H88"/><path d="M202 150 H234"/>
+      <path d="M340 140 C360 140 360 58 378 58"/><path d="M340 150 H378"/><path d="M340 160 C360 160 360 242 378 242"/>
+      <path d="M510 52 C540 52 540 96 558 96"/><path d="M558 112 C540 112 540 150 512 150"/>
+      <path d="M510 70 C560 70 560 200 558 214" stroke-dasharray="4 3"/><path d="M510 160 C540 160 540 220 558 220" stroke-dasharray="4 3"/>
+      <path d="M510 242 H558"/><path d="M672 224 H710"/><path d="M816 224 H856"/>
+      <path d="M146 178 C146 280 860 300 876 248" stroke="#D99A9A"/>
+    </g>
+  </svg>
   </div>
-  <h1>The agentic AI</h1>
-  <p class="lead">Three agents and a router, four tools, two layers of memory. Every answer is grounded in real SQL. It costs about $0.0005 per question on Claude Haiku 5.5.</p>
-  <p class="doc-switch">Companion page: <a href="architecture.html">← Project architecture</a></p>
-  <nav>
-    <a href="#workflow">Workflow</a><a href="#agents">Agents</a><a href="#tools">Tools</a><a href="#prompts">Prompt templates</a>
-    <a href="#trace">A real run</a><a href="#memory">Memory</a><a href="#cost">Cost</a><a href="#quality">Quality</a>
-  </nav>
-  <div class="stats">
-    <div class="stat"><b>claude-haiku-5-5</b><span>one model for every agent</span></div>
-    <div class="stat"><b>$0.0005</b><span>average cost per question</span></div>
-    <div class="stat"><b>4.9 s</b><span>median response</span></div>
-    <div class="stat"><b>0%</b><span>hallucination rate</span></div>
-  </div>
-</header>
 
-<section id="workflow">
-  <h2>Agent workflow</h2>
-  <p class="sub">This is one LangGraph graph. The router sends each question to the right agent. Agents loop with their tools until they can answer. Then memory saves the turn.</p>
-  <div class="panel diagram">
-    <svg viewBox="0 0 980 400" role="img" aria-label="Agent workflow graph">
-      <defs>
-        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
-      </defs>
-      <rect x="10" y="168" width="100" height="56" rx="28" fill="var(--sand)" stroke="var(--line)"/>
-      <text x="60" y="201" text-anchor="middle" font-size="14" font-weight="600" fill="var(--ink)">Question</text>
-
-      <rect x="160" y="160" width="140" height="72" rx="14" fill="var(--accent)" />
-      <text x="230" y="192" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">Router</text>
-      <text x="230" y="212" text-anchor="middle" font-size="12" fill="#fff" opacity=".9">data · chart · chat</text>
-
-      <rect x="370" y="40" width="200" height="72" rx="14" fill="var(--accent-soft)" stroke="var(--accent)"/>
-      <text x="470" y="72" text-anchor="middle" font-size="16" font-weight="600" fill="var(--ink)">Analyst agent</text>
-      <text x="470" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">numbers &amp; facts</text>
-
-      <rect x="370" y="160" width="200" height="72" rx="14" fill="var(--accent-soft)" stroke="var(--accent)"/>
-      <text x="470" y="192" text-anchor="middle" font-size="16" font-weight="600" fill="var(--ink)">Chart agent</text>
-      <text x="470" y="212" text-anchor="middle" font-size="12" fill="var(--muted)">Plotly charts + insights</text>
-
-      <rect x="370" y="290" width="200" height="72" rx="14" fill="var(--surface)" stroke="var(--line)"/>
-      <text x="470" y="322" text-anchor="middle" font-size="16" font-weight="600" fill="var(--ink)">Assistant</text>
-      <text x="470" y="342" text-anchor="middle" font-size="12" fill="var(--muted)">greetings, small talk</text>
-
-      <rect x="630" y="90" width="150" height="100" rx="14" fill="var(--blue-soft)" stroke="var(--blue)"/>
-      <text x="705" y="118" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">Tools</text>
-      <text x="705" y="140" text-anchor="middle" font-size="11.5" fill="var(--muted)">get_schema</text>
-      <text x="705" y="156" text-anchor="middle" font-size="11.5" fill="var(--muted)">lookup_metric · run_sql</text>
-      <text x="705" y="172" text-anchor="middle" font-size="11.5" fill="var(--muted)">make_chart</text>
-
-      <rect x="830" y="160" width="140" height="72" rx="14" fill="var(--green-soft)" stroke="var(--green)"/>
-      <text x="900" y="192" text-anchor="middle" font-size="16" font-weight="600" fill="var(--ink)">Memory</text>
-      <text x="900" y="212" text-anchor="middle" font-size="12" fill="var(--muted)">save + summarise</text>
-
-      <path d="M110 196 L158 196" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <path d="M300 180 C 335 180, 335 76, 368 76" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <path d="M300 196 L368 196" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <path d="M300 212 C 335 212, 335 326, 368 326" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <!-- tool loops -->
-      <path d="M570 66 C 600 66, 610 110, 628 115" stroke="var(--blue)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <path d="M628 140 C 605 140, 600 96, 572 92" stroke="var(--blue)" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#a2)"/>
-      <path d="M570 186 C 600 186, 605 170, 628 168" stroke="var(--blue)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <path d="M628 182 C 605 190, 600 206, 572 206" stroke="var(--blue)" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#a2)"/>
-      <text x="705" y="76" text-anchor="middle" font-size="11" fill="var(--blue)">loop until done</text>
-      <!-- to memory -->
-      <path d="M570 52 C 800 20, 880 100, 895 158" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <path d="M570 222 C 700 250, 800 220, 828 206" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <path d="M570 326 C 800 340, 880 300, 895 234" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
-      <text x="968" y="254" text-anchor="end" font-size="12" font-weight="600" fill="var(--green)">→ answer</text>
-    </svg>
-    <div class="legend">
-      <span><i style="background:var(--accent)"></i>Decides</span>
-      <span><i style="background:var(--accent-soft);border:1px solid var(--accent)"></i>Agents with tools</span>
-      <span><i style="background:var(--blue-soft);border:1px solid var(--blue)"></i>Tool loop (dashed line = result back to the agent)</span>
-      <span><i style="background:var(--green-soft);border:1px solid var(--green)"></i>Memory</span>
-    </div>
-  </div>
-</section>
-
-<section id="agents">
-  <h2>The agents: inputs and outputs</h2>
-  <p class="sub">Each agent has one job, one prompt and a fixed set of tools. Every agent uses <code>claude-haiku-5-5</code> (the router and memory summary always do, even if you upgrade the main model). The tokens and cost shown are averages from backtest 2.</p>
-  <div class="agent-grid">
-    <article class="agent">
-      <header><div class="ico">⇄</div><div><h3>Router</h3></div></header>
-      <p class="role">Reads the conversation and decides who should answer.</p>
-      <dl class="io">
-        <dt>Input</dt><dd>The last 6 questions and answers (no tool messages)</dd>
-        <dt>Output</dt><dd>Structured JSON: <code>{"route": "data" | "chart" | "chat"}</code></dd>
-        <dt>Tools</dt><dd>None</dd>
-      </dl>
-      <div class="foot"><span>~250 tokens</span><b>≈ $0.0002</b></div>
-    </article>
-    <article class="agent">
-      <header><div class="ico">∑</div><div><h3>Analyst agent</h3></div></header>
-      <p class="role">Answers number questions with real SQL.</p>
-      <dl class="io">
-        <dt>Input</dt><dd>Question + last 6 turns + memory summary</dd>
-        <dt>Output</dt><dd>A bold one-line answer + up to 2 sentences of context</dd>
-        <dt>Tools</dt><dd class="chips"><span class="chip">get_schema</span><span class="chip">lookup_metric</span><span class="chip">run_sql</span></dd>
-      </dl>
-      <div class="foot"><span>2,085 in · 109 out · 8.8 s</span><b>$0.0021</b></div>
-    </article>
-    <article class="agent">
-      <header><div class="ico">▤</div><div><h3>Chart agent</h3></div></header>
-      <p class="role">Draws the right chart and explains it like an analyst.</p>
-      <dl class="io">
-        <dt>Input</dt><dd>Question + last 6 turns + memory summary</dd>
-        <dt>Output</dt><dd>An interactive Plotly chart + 2–3 insight bullets (highest, lowest, trend)</dd>
-        <dt>Tools</dt><dd class="chips"><span class="chip">get_schema</span><span class="chip">lookup_metric</span><span class="chip">run_sql</span><span class="chip">make_chart</span></dd>
-      </dl>
-      <div class="foot"><span>2,472 in · 192 out · 5.3 s</span><b>$0.0027</b></div>
-    </article>
-    <article class="agent">
-      <header><div class="ico">☺</div><div><h3>Assistant</h3></div></header>
-      <p class="role">Handles greetings and questions about what Insightly can do. It also answers "remind me" questions from memory.</p>
-      <dl class="io">
-        <dt>Input</dt><dd>Question + last 6 turns + memory summary</dd>
-        <dt>Output</dt><dd>A short, friendly reply</dd>
-        <dt>Tools</dt><dd>None (it never touches the database)</dd>
-      </dl>
-      <div class="foot"><span>359 in · 67 out · 2.4 s</span><b>$0.0006</b></div>
-    </article>
-    <article class="agent">
-      <header><div class="ico">◎</div><div><h3>Memory</h3></div></header>
-      <p class="role">Keeps long chats smooth and cheap.</p>
-      <dl class="io">
-        <dt>Input</dt><dd>Turns that just left the 6-turn window + the old summary</dd>
-        <dt>Output</dt><dd>An updated summary of up to 8 bullets, saved in the conversation</dd>
-        <dt>Runs</dt><dd>Only once a chat passes 6 turns</dd>
-      </dl>
-      <div class="foot"><span>~600 tokens when it runs</span><b>≈ $0.0006</b></div>
-    </article>
-  </div>
-</section>
-
-<section id="tools">
   <h2>Tools</h2>
-  <p class="sub">The model reads each tool's description to decide when to call it. Errors go back to the agent, so it can fix its own SQL.</p>
-  <div class="table"><table>
-    <tr><th>Tool</th><th>Input</th><th>Output</th><th>Guardrail</th></tr>
-    <tr><td><code>get_schema</code></td><td>Nothing</td><td>Every table and its columns, plus a note on date format</td><td>Read-only</td></tr>
-    <tr><td><code>lookup_metric</code></td><td>The question</td><td>Official definitions of the 2 closest metrics (this is the RAG step)</td><td>Fixed glossary of 8 metrics</td></tr>
-    <tr><td><code>run_sql</code></td><td>One SQLite SELECT</td><td>Column names + up to 50 rows, or the error</td><td>SELECT only, read-only connection, 60 s limit</td></tr>
-    <tr><td><code>make_chart</code></td><td>SELECT, chart type, x, y, title, optional color</td><td>To the agent: a numeric summary. To the app: the Plotly figure</td><td>Same as run_sql; up to 500 rows</td></tr>
-  </table></div>
-</section>
+  <table>
+    <tr><th>Tool</th><th>What it does</th><th>Guardrails</th></tr>
+    <tr><td><code>get_schema</code></td><td>Tables, columns and the SQL dialect (SQLite or PostgreSQL)</td><td>read-only connection</td></tr>
+    <tr><td><code>lookup_metric</code></td><td>Official definitions (net revenue, gross profit, AOV, return rate…): the RAG step, so "revenue" always means the same thing</td><td>n/a</td></tr>
+    <tr><td><code>run_sql</code></td><td>One SELECT, max 50 rows; errors go back to the model so it can fix its query</td><td>SQL guard → read-only transaction + timeout → PII redaction → injection flag</td></tr>
+    <tr><td><code>make_chart</code></td><td>One aggregated SELECT → bar / line / area / pie / scatter + a numeric summary the model may quote</td><td>same as run_sql</td></tr>
+  </table>
 
-<section id="prompts">
-  <h2>Prompt templates</h2>
-  <p class="sub">These are the exact prompts in <code>app/graph.py</code>. Every agent prompt gets <code>{summary}</code> added when the chat has one.</p>
+  <h2>Guardrails, in order</h2>
+  <pre>question ─▶ check_input      size · prompt-injection score ≥ 0.6 · "delete/drop/update ..." commands   → refuse, no LLM call
+          ─▶ system prompt    data is never instructions · read-only · no PII · canary token
+          ─▶ check_sql        one statement · SELECT/WITH only · no write/admin keywords · no PII columns
+          ─▶ database         read-only transaction, 60 s timeout, read-only user (RDS)
+          ─▶ redact_rows      blanks email / address / IP columns (catches SELECT *)
+          ─▶ wrap_tool_output flags instruction-like text found in data
+          ─▶ check_output     canary → refuse · redact emails, phones, card numbers, API keys</pre>
 
-  <details class="prompt" open><summary>Analyst agent <small>system prompt</small></summary><div class="inner">
-<pre class="prompt-text">You are Insightly, a senior data analyst for an online clothing shop.
-Answer with real numbers from the database:
-1. call get_schema to see the tables,
-2. call lookup_metric when the question names a business metric,
-3. call run_sql (SQLite) and fix the query if it returns an error.
-Keep SQL simple: product category and brand are in products (join order_items.product_id = products.id);
-use inventory_items only for stock questions.
-You can only read data: if asked to change or delete anything, say you can't, without calling run_sql.
-If a query finds no rows for a period, say there is no data for it (don't report it as 0).
-Lead with the answer in bold, then at most 2 short sentences of context.
-Use $ for money and thousands separators. Don't paste the SQL; the app shows it.
+  <h2>Memory</h2>
+  <p>The last 6 turns go to the model word for word. Older turns are folded by Haiku into a running summary
+  that keeps every number, year and metric, so long chats stay cheap without forgetting. The window always starts at
+  a user message, so a tool call is never separated from its result.</p>
 
-Summary of the earlier conversation:
-{summary}</pre></div></details>
-
-  <details class="prompt"><summary>Chart agent <small>system prompt</small></summary><div class="inner">
-<pre class="prompt-text">You are Insightly, a senior data analyst who explains data with charts.
-1. call get_schema, and lookup_metric when the question names a business metric,
-2. call make_chart with a SELECT that aggregates the data (by month, category...),
-   picking the chart type that fits: line for trends, bar to compare, pie for shares.
-   If it returns an error, fix the SQL or column names and try again.
-3. Then write 2-3 short bullet points of insight (highest, lowest, trend), quoting ONLY
-   numbers exactly as they appear in the chart summary. Don't add up or calculate new numbers.
-   Use $ for money. Don't paste the SQL or the chart JSON.
-Keep SQL simple: product category and brand are in products (join order_items.product_id = products.id);
-use inventory_items only for stock questions.
-You can only read data: never change or delete anything.
-
-Summary of the earlier conversation:
-{summary}</pre></div></details>
-
-  <details class="prompt"><summary>Router <small>structured output schema</small></summary><div class="inner">
-<p class="vars">The model must return one of three values. This docstring is its whole instruction.</p>
-<pre class="prompt-text">class Route(BaseModel):
-    """Pick "chart" when the user asks to see, plot, chart, graph or visualise data.
-    Pick "data" for ANY other question about the shop's sales, orders, customers, products,
-    inventory or website events (even for dates that may not exist in the data; the
-    database will tell). Pick "chat" only for greetings and questions about you."""
-    route: Literal["data", "chart", "chat"]</pre></div></details>
-
-  <details class="prompt"><summary>Assistant <small>system prompt</small></summary><div class="inner">
-<pre class="prompt-text">You are Insightly, a friendly assistant for an online clothing shop's data.
-You can answer questions about sales, orders, customers, products, inventory and
-website events, and draw charts. Reply briefly.
-
-Summary of the earlier conversation:
-{summary}</pre></div></details>
-
-  <details class="prompt"><summary>Memory summariser <small>system prompt + user template</small></summary><div class="inner">
-<pre class="prompt-text">Update the running summary of a conversation between a user and a
-data assistant. Keep every number, year, metric and preference the user mentioned.
-At most 8 short bullet points. Return only the summary.
-
---- user message ---
-Current summary:
-{summary}
-
-New lines:
-User: {question}
-Assistant: {answer}
-...</pre></div></details>
-</section>
-
-<section id="trace">
-  <h2>A real run, step by step</h2>
-  <p class="sub">This was captured from the live app. Question 1 was "Show monthly net revenue for 2023 as a line chart"; this is the follow-up in the same chat.</p>
-  <div class="trace">
-    <div class="t-row"><span class="who">You</span><span class="what">Now compare that by product category as a bar chart, top 10</span></div>
-    <div class="t-row"><span class="who">Router</span><span class="what"><code>{"route": "chart"}</code>. It understood that "that" means 2023 net revenue, from memory.</span></div>
-    <div class="t-row"><span class="who">Chart agent</span><span class="what">It skipped the schema and metric lookup because both were already in the conversation, and went straight to:
-<code>make_chart(chart_type="bar", x="category", y="net_revenue",
-  title="Top 10 Product Categories by Net Revenue in 2023",
-  sql="SELECT p.category, SUM(oi.sale_price) AS net_revenue
-       FROM order_items oi JOIN products p ON oi.product_id = p.id
-       WHERE oi.status NOT IN ('Cancelled','Returned')
-         AND strftime('%Y', oi.created_at) = '2023'
-       GROUP BY p.category ORDER BY net_revenue DESC LIMIT 10")</code></span></div>
-    <div class="t-row"><span class="who">Tool</span><span class="what">A horizontal bar chart (sorted, with data labels) goes to the app. The agent gets a summary: <code>Highest: Outerwear &amp; Coats = 415,401.20 · Lowest: Active = 143,756.72 · Total 2,283,573.48</code></span></div>
-    <div class="t-row"><span class="who">Answer</span><span class="what">• <b>Outerwear &amp; Coats</b> led the top 10 with <b>$415,401.20</b><br>• <b>Active</b> was the lowest of the top 10 at <b>$143,756.72</b><br>• Together the top 10 made <b>$2,283,573.48</b> in 2023</span></div>
-    <div class="t-row"><span class="who">Memory</span><span class="what">Turn saved. 1 step · 3,148 tokens · <b>$0.0031</b> · 5.7 s</span></div>
+  <h2>Measured quality (25 live tasks, real data)</h2>
+  <div class="kpis">
+    <div class="kpi"><b>100%</b><span>answers correct vs SQL ground truth</span></div>
+    <div class="kpi"><b>100%</b><span>prompt-injection resistance · 0 leaks</span></div>
+    <div class="kpi"><b>0%</b><span>PII leaks · false blocks</span></div>
+    <div class="kpi"><b>2.8 s</b><span>mean latency (p95 5.7 s)</span></div>
+    <div class="kpi"><b>$0.0004</b><span>per question on Haiku 5.5</span></div>
+    <div class="kpi"><b>98%</b><span>groundedness of quoted numbers</span></div>
   </div>
-</section>
+  <p style="color:var(--muted);font-size:.9rem">Run them yourself: <code>make eval</code>. Metrics live in
+  <code>evals/metrics/</code>: core, hallucination, guardrails, prompt_injection, agent_failures.</p>
 
-<section id="memory">
-  <h2>Memory design</h2>
-  <p class="sub">There are two layers, so chats feel natural without the prompt growing forever.</p>
-  <div class="grid">
-    <div class="card"><div class="k">Layer 1 · everything, on disk</div><p>Every message, tool call and chart is saved per <code>thread_id</code> in <code>memory.db</code> by the LangGraph checkpointer. Chats survive restarts and can be reopened from the sidebar.</p></div>
-    <div class="card"><div class="k">Layer 2 · what the model sees</div><p>The model sees the last 6 turns word for word, plus a summary of everything older. The window always starts at a question, so a tool call is never separated from its result.</p></div>
-    <div class="card"><div class="k">Tested</div><p>In a 9-turn chat, the first 3 turns were summarised. The agent still recalled the user's name, their favourite category and a revenue figure from turn 2.</p></div>
-  </div>
-</section>
-
-<section id="cost">
-  <h2>Cost</h2>
-  <p class="sub">Price for <code>claude-haiku-5-5</code>: <b>$0.10</b> per 1M input tokens and <b>$0.50</b> per 1M output tokens (prompts up to 100K tokens; ours are about 2-6K). The same answers on <code>gpt-5.4-mini</code> cost about 8x more. Input is most of the volume (schema, prompt and history); output is short.</p>
-  <div class="grid">
-    <div class="panel">
-      <h3>Average cost per question</h3>
-      <div class="bars">
-        <div class="bar-row"><span>Chart</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><b>$0.0009</b></div>
-        <div class="bar-row"><span>Analyst</span><div class="bar-track"><div class="bar-fill" style="width:54%"></div></div><b>$0.0005</b></div>
-        <div class="bar-row"><span>Assistant</span><div class="bar-track"><div class="bar-fill" style="width:13%"></div></div><b>$0.0001</b></div>
-      </div>
-      <p class="hint" style="color:var(--muted);font-size:13px;margin:14px 0 0">Measured on 16 tasks in backtest 2 (Nov 2026). That whole run cost under $0.01.</p>
-    </div>
-    <div class="panel">
-      <h3>Cost calculator</h3>
-      <div class="calc">
-        <div><label for="q">Questions per day: <span id="qv">1,000</span></label>
-          <input id="q" type="range" min="50" max="20000" step="50" value="1000"></div>
-        <div><label for="mix">Share that are charts: <span id="mv">25%</span></label>
-          <input id="mix" type="range" min="0" max="100" step="5" value="25"></div>
-        <div><output id="month">$18</output><div class="hint">per month (30 days)</div></div>
-        <div><output id="day" style="font-size:24px">$0.60</output><div class="hint">per day</div></div>
-      </div>
-    </div>
-  </div>
-  <div class="grid" style="margin-top:14px">
-    <div class="card"><div class="k">Why it's cheap</div><p>A mini model, short outputs, aggregation done in SQL rather than by the model, and memory that caps the history.</p></div>
-    <div class="card"><div class="k">Where it's shown</div><p>The app shows the cost of every answer and the total for each chat. The API returns <code>cost_usd</code>, and <code>evals/</code> reports cost per task.</p></div>
-    <div class="card"><div class="k">Change the model</div><p>Set <code>LLM_MODEL=</code> in <code>.env</code>. Prices for other models are in <code>app/config.py</code>.</p></div>
-  </div>
-</section>
-
-<section id="quality">
-  <h2>Quality: 10 metrics</h2>
-  <p class="sub">The latest backtest 2 (claude-haiku-5-5): 16 tasks covering numbers, follow-ups, memory recall, charts, small talk, a year with no data and an unsafe request.</p>
-  <div class="table"><table>
-    <tr><th>Metric</th><th>What it checks</th><th>Score</th></tr>
-    <tr><td>Task Completion Rate</td><td>Finished with an answer</td><td class="score">100%</td></tr>
-    <tr><td>Success Rate</td><td>Right answer or chart</td><td class="score">100%</td></tr>
-    <tr><td>Tool Call Accuracy</td><td>Tool calls valid and working</td><td class="score">100%</td></tr>
-    <tr><td>Planning Accuracy</td><td>Right agent; schema before SQL; metric looked up</td><td class="score">96%</td></tr>
-    <tr><td>Trajectory Accuracy</td><td>Close to the ideal tool sequence</td><td class="score">94%</td></tr>
-    <tr><td>Hallucination Rate</td><td>Answers with an unsupported number (lower is better)</td><td class="score">0%</td></tr>
-    <tr><td>Groundedness Score</td><td>Numbers backed by tool output</td><td class="score">100%</td></tr>
-    <tr><td>Human Intervention Rate</td><td>A person had to step in (lower is better)</td><td class="score">0%</td></tr>
-    <tr><td>Latency</td><td>Median / p95 per task</td><td class="score">3.0 s / 5.7 s</td></tr>
-    <tr><td>Cost Per Task</td><td>Average</td><td class="score">$0.0005</td></tr>
-  </table></div>
-</section>
-
-<footer><a href="architecture.html">← Project architecture</a><span>Insightly Lite · LangGraph · claude-haiku-5-5 · Plotly</span></footer>
-</div>
-<script>
-  var PRICE = { data: 0.0005, chart: 0.00092 };  // claude-haiku-5-5, backtest 2
-  var q = document.getElementById('q'), mix = document.getElementById('mix');
-  function update() {
-    var n = +q.value, share = +mix.value / 100;
-    var perQ = PRICE.chart * share + PRICE.data * (1 - share);
-    var day = n * perQ;
-    document.getElementById('qv').textContent = n.toLocaleString();
-    document.getElementById('mv').textContent = mix.value + '%';
-    document.getElementById('day').textContent = '$' + day.toFixed(2);
-    document.getElementById('month').textContent = '$' + Math.round(day * 30).toLocaleString();
-  }
-  q.addEventListener('input', update); mix.addEventListener('input', update); update();
-  document.querySelectorAll('pre').forEach(function (pre) {
-    var text = pre.textContent, btn = document.createElement('button');
-    btn.className = 'copy'; btn.textContent = 'Copy';
-    btn.addEventListener('click', function () {
-      try { navigator.clipboard.writeText(text); btn.textContent = 'Copied'; } catch (e) { btn.textContent = 'Select to copy'; }
-      setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
-    });
-    pre.appendChild(btn);
-  });
-</script>
+  <h2>Models</h2>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>Notes</th></tr>
+    <tr><td><code>LLM_MODEL</code></td><td>claude-haiku-5-5</td><td>$0.10 / $0.50 per 1M tokens (prompts ≤ 100K). Try <code>claude-sonnet-5-5</code> ($2 / $10) for harder questions.</td></tr>
+    <tr><td><code>LLM_FAST_MODEL</code></td><td>claude-haiku-5-5</td><td>router and memory summary always use the cheapest model</td></tr>
+    <tr><td><code>LLM_MAX_TOKENS</code></td><td>2048</td><td>caps answer length and worst-case cost</td></tr>
+    <tr><td><code>RECURSION_LIMIT</code></td><td>25</td><td>stops runaway tool loops (HTTP 422)</td></tr>
+  </table>
+</main>
 </body>
 </html>

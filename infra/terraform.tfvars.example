@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is git-ignored.
+region                  = "ap-south-1"
+environment             = "prod"
+kubernetes_version      = "1.35"     # aws eks describe-cluster-versions --query 'clusterVersions[].clusterVersion'
+node_instance_types     = ["t3.large"]
+db_instance_class       = "db.t4g.medium"
+db_deletion_protection  = false      # true for a real production database
+alert_email             = ""         # you@company.com to get CloudWatch alarm emails
+eks_public_access_cidrs = ["0.0.0.0/0"]  # your.ip.address/32 is safer

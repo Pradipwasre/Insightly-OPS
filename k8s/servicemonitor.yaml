@@ -1,0 +1,17 @@
+# Tells Prometheus (kube-prometheus-stack, installed by deploy_eks.sh) to scrape /metrics.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: insightly-api
+  namespace: insightly
+  labels:
+    release: kube-prometheus-stack   # the label the Helm release selects ServiceMonitors by
+spec:
+  selector:
+    matchLabels: { app: insightly-api }
+  namespaceSelector:
+    matchNames: [insightly]
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

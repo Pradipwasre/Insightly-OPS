@@ -1,0 +1,20 @@
+# Public entry point: an AWS Network Load Balancer in front of the Streamlit UI.
+# Restrict who can reach it with UI_ALLOWED_CIDR (e.g. your office IP/32) in deploy_eks.sh.
+# Streamlit needs sticky sessions (websocket), hence the source-IP stickiness.
+apiVersion: v1
+kind: Service
+metadata:
+  name: insightly-ui
+  namespace: insightly
+  labels: { app: insightly-ui }
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
+spec:
+  type: LoadBalancer
+  selector: { app: insightly-ui }
+  loadBalancerSourceRanges: ["${UI_ALLOWED_CIDR}"]
+  ports:
+    - { name: http, port: 80, targetPort: http }

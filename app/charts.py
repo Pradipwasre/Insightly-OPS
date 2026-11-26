@@ -1,7 +1,7 @@
 """Turn query results into a clean, analyst-style Plotly chart.
 
 build() returns (figure as a dict, short text summary). The figure goes to the
-app; the summary goes to the LLM so its insights use real numbers.
+app; the summary goes to the LLM so its insights use real numbers only.
 """
 import json
 
@@ -10,8 +10,9 @@ import plotly.express as px
 
 COLORS = ["#C96442", "#3B6EA8", "#5A8F5A", "#D4A24C", "#8C6BB1", "#4C9A9A", "#B5577B", "#7A7A72"]
 FONT = "Inter, Segoe UI, Helvetica Neue, Arial, sans-serif"
-px.defaults.color_discrete_sequence = COLORS  # every chart uses the same palette
+px.defaults.color_discrete_sequence = COLORS
 TIME_WORDS = ("date", "day", "week", "month", "year", "quarter", "period", "time")
+KINDS = ("bar", "line", "area", "pie", "scatter")
 
 
 def short(v):
@@ -23,17 +24,20 @@ def short(v):
 
 
 def is_time(df, x):
-    return any(w in x.lower() for w in TIME_WORDS) or df[x].astype(str).str.match(r"^\d{4}(-\d{2})?").all()
+    return any(w in x.lower() for w in TIME_WORDS) or bool(df[x].astype(str).str.match(r"^\d{4}(-\d{2})?").all())
 
 
 def build(cols, rows, kind, x, y, title, color=""):
-    df = pd.DataFrame(rows, columns=cols)
+    if kind not in KINDS:
+        raise ValueError(f"unknown chart type '{kind}'. Use one of {KINDS}")
+    df = pd.DataFrame([tuple(r) for r in rows], columns=list(cols))
     for c in [x, y] + ([color] if color else []):
         if c not in df.columns:
-            raise ValueError(f"column '{c}' is not in the result. Columns are: {cols}")
-    if df.empty:
-        raise ValueError("the query returned no rows, so there is nothing to draw")
+            raise ValueError(f"column '{c}' is not in the result. Columns are: {list(cols)}")
     df[y] = pd.to_numeric(df[y], errors="coerce")
+    df = df.dropna(subset=[y])
+    if df.empty:
+        raise ValueError("the query returned no numeric rows, so there is nothing to draw")
     color = color or None
     time_axis = is_time(df, x)
 
@@ -60,14 +64,11 @@ def build(cols, rows, kind, x, y, title, color=""):
     elif kind == "pie":
         fig = px.pie(df, names=x, values=y, hole=0.5)
         fig.update_traces(textinfo="percent+label", textposition="outside", sort=True)
-    elif kind == "scatter":
-        fig = px.scatter(df, x=x, y=y, color=color, size_max=14)
+    else:  # scatter
+        fig = px.scatter(df, x=x, y=y, color=color)
         fig.update_traces(marker_size=10, marker_opacity=0.75)
-    else:
-        raise ValueError(f"unknown chart type '{kind}'")
 
-    # Call out the peak on trend charts, like an analyst would
-    if kind in ("line", "area") and not color:
+    if kind in ("line", "area") and not color:  # call out the peak, like an analyst would
         top = df.loc[df[y].idxmax()]
         fig.add_annotation(x=top[x], y=top[y], text=f"Peak: {short(top[y])}", showarrow=True,
                            arrowhead=0, ay=-36, font_color=COLORS[0], bgcolor="white")
@@ -84,7 +85,6 @@ def build(cols, rows, kind, x, y, title, color=""):
     )
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(gridcolor="#EEECE6", zeroline=False)
-
     return json.loads(fig.to_json()), summarize(df, kind, x, y, time_axis)
 
 
@@ -102,6 +102,6 @@ def summarize(df, kind, x, y, time_axis):
     if kind == "pie":
         share = df[y] / df[y].sum() * 100
         lines.append(f"Shares below are of the {len(df)} slices shown only, not of all data:")
-        lines += [f"Share of {r[x]}: {s:.1f}%" for (_, r), s in zip(df.iterrows(), share)][:8]
+        lines += [f"Share of {r[x]}: {s:.1f}%" for (_, r), s in zip(df.iterrows(), share, strict=False)][:8]
     lines.append("First rows: " + df.head(12).to_csv(index=False).replace("\n", " | "))
     return "\n".join(lines)

@@ -1,8 +1,9 @@
 """Business glossary + a tiny retriever. This is the "R" in RAG.
 
-The agent looks up the official definition of a metric before writing SQL,
-so "revenue" always means the same thing. Real projects use embeddings and a
-vector store; keyword overlap keeps the idea visible in a few lines.
+The agent looks up the official definition of a metric before writing SQL, so
+"revenue" always means the same thing. The SQL is portable: it runs unchanged on
+SQLite (local) and PostgreSQL (RDS). Real projects use embeddings and a vector
+store; keyword overlap keeps the idea visible in a few lines.
 Order statuses in the data: Complete, Shipped, Processing, Returned, Cancelled.
 """
 import re
@@ -18,9 +19,9 @@ METRICS = [
     {"name": "Average order value", "words": "aov average basket order value",
      "sql": "net revenue / COUNT(DISTINCT order_id), both from order_items WHERE status NOT IN ('Cancelled','Returned')"},
     {"name": "Return rate", "words": "returns returned return rate",
-     "sql": "100.0 * SUM(status = 'Returned') / COUNT(*) FROM orders"},
+     "sql": "100.0 * SUM(CASE WHEN status = 'Returned' THEN 1 ELSE 0 END) / COUNT(*) FROM orders"},
     {"name": "Cancellation rate", "words": "cancel cancelled cancellation",
-     "sql": "100.0 * SUM(status = 'Cancelled') / COUNT(*) FROM orders"},
+     "sql": "100.0 * SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) / COUNT(*) FROM orders"},
     {"name": "Active customers", "words": "customers buyers active users who ordered",
      "sql": "COUNT(DISTINCT user_id) FROM orders"},
     {"name": "Conversion rate", "words": "conversion convert funnel sessions purchase",
@@ -36,5 +37,4 @@ def tokens(text):
 def search(question, k=2):
     q = tokens(question)
     scored = [(len(q & tokens(m["name"] + " " + m["words"])), m) for m in METRICS]
-    best = [m for score, m in sorted(scored, key=lambda x: -x[0]) if score > 0]
-    return best[:k]
+    return [m for score, m in sorted(scored, key=lambda x: -x[0]) if score > 0][:k]

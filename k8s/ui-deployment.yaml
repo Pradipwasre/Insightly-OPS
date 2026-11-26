@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insightly-ui
+  namespace: insightly
+  labels: { app: insightly-ui, app.kubernetes.io/part-of: insightly }
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: { app: insightly-ui }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  template:
+    metadata:
+      labels: { app: insightly-ui, app.kubernetes.io/part-of: insightly }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: ui
+          image: ${ECR_REGISTRY}/insightly-ui:${IMAGE_TAG}
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 8501 }]
+          env:
+            - { name: API_URL, value: "http://insightly-api.insightly.svc.cluster.local:8000" }
+            - { name: HOME, value: /tmp }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /_stcore/health, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /_stcore/health, port: http }
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 128Mi }

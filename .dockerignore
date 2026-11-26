@@ -1,8 +1,19 @@
 .env
+.env.*
+!.env.example
+.venv
+venv
 data
-data files
-.git
 **/__pycache__
-*.pyc
-*.html
+**/*.pyc
+.git
+.pytest_cache
+.ruff_cache
+infra
+k8s
+docs
+monitoring
+jenkins
 **/._*
+.DS_Store
+evals/results.json

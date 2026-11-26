@@ -1,17 +1,41 @@
-*.py[cod]
-__pycache__/
+# secrets
 .env
+.env.*
+!.env.example
+*.pem
+
+# python
+__pycache__/
+*.py[cod]
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+reports/
+
+# data (large, private)
+data/
+data files/*
+!data files/README.md
+_to_delete/
+Claude outputs/
 *.db
-*.sqlite
-*.sqlite3
 *.db-wal
 *.db-shm
 *.db-journal
-data files/
-.DS_Store
+*.sqlite*
+evals/results.json
 
-# Local tool settings and macOS junk files
-.claude/settings.local.json
+# terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/tf.plan
+infra/terraform.tfvars
+infra/.terraform.lock.hcl.bak
+.image-tag
+
+# OS / editors
+.DS_Store
 ._*
+.idea/

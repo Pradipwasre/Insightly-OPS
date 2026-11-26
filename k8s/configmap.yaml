@@ -1,0 +1,22 @@
+# Non-secret settings. The ${...} placeholders are filled in by jenkins/scripts/deploy_eks.sh (render_k8s.py)
+# from `terraform output`, so nothing account-specific is committed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: insightly-config
+  namespace: insightly
+data:
+  APP_ENV: "${APP_ENV}"
+  AWS_REGION: "${AWS_REGION}"
+  S3_BUCKET: "${S3_BUCKET}"
+  S3_PREFIX: "raw/"
+  LLM_PROVIDER: "anthropic"
+  LLM_MODEL: "${LLM_MODEL}"
+  CLOUDWATCH_ENABLED: "true"
+  CLOUDWATCH_NAMESPACE: "Insightly"
+  AUTO_INGEST: "false"            # the ingest Job loads RDS; the API never builds the database
+  DATA_DIR: "/tmp/data"
+  QUERY_TIMEOUT_S: "60"
+  MAX_INPUT_CHARS: "2000"
+  RECURSION_LIMIT: "25"
+  DB_READONLY_USER: "insightly_ro"
