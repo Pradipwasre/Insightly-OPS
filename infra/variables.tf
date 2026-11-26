@@ -76,6 +76,18 @@ variable "postgres_version" {
   default     = "17"
 }
 
+variable "db_backup_retention_days" {
+  description = "Days of automated RDS backups (AWS Free plan allows at most 1)"
+  type        = number
+  default     = 7
+}
+
+variable "db_storage_autoscaling" {
+  description = "Let RDS grow storage up to 4x automatically (set false on the AWS Free plan)"
+  type        = bool
+  default     = true
+}
+
 variable "db_multi_az" {
   type    = bool
   default = false

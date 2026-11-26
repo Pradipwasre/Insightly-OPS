@@ -52,7 +52,7 @@ resource "aws_db_instance" "main" {
   password = random_password.db_admin.result
 
   allocated_storage     = var.db_allocated_storage_gb
-  max_allocated_storage = var.db_allocated_storage_gb * 4
+  max_allocated_storage = var.db_storage_autoscaling ? var.db_allocated_storage_gb * 4 : null
   storage_type          = "gp3"
   storage_encrypted     = true
 
@@ -62,9 +62,9 @@ resource "aws_db_instance" "main" {
   multi_az               = var.db_multi_az
   parameter_group_name   = aws_db_parameter_group.pg.name
 
-  backup_retention_period         = 7
+  backup_retention_period         = var.db_backup_retention_days
   auto_minor_version_upgrade      = true
-  performance_insights_enabled    = true
+  performance_insights_enabled    = !strcontains(var.db_instance_class, "micro") # not on Free-Tier micro classes
   enabled_cloudwatch_logs_exports = ["postgresql"]
   deletion_protection             = var.db_deletion_protection
   skip_final_snapshot             = !var.db_deletion_protection
