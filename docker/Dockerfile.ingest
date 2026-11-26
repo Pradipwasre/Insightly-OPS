@@ -14,5 +14,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 RUN useradd --uid 10001 --create-home insightly
 COPY app/__init__.py app/config.py app/db.py app/storage.py app/ingest.py ./app/
+# Files copied from a Mac can be readable by their owner only (chmod 600);
+# make the code readable by the non-root user the container runs as.
+RUN chmod -R a+rX /app/app
 USER 10001
 CMD ["python", "-m", "app.ingest", "--from-s3"]

@@ -54,10 +54,21 @@ kubectl -n insightly wait --for=condition=Ready externalsecret/insightly-secrets
 
 if [[ "${RUN_INGEST:-false}" == "true" ]]; then
   echo "==> ingest job (S3 -> RDS)"
+  kubectl -n insightly delete job "insightly-ingest-$IMAGE_TAG" --ignore-not-found >/dev/null
   render k8s/ingest-job.yaml | kubectl apply -f -
-  kubectl -n insightly wait --for=condition=complete "job/insightly-ingest-$IMAGE_TAG" --timeout=3600s \
-    || { kubectl -n insightly logs "job/insightly-ingest-$IMAGE_TAG" --tail=50; exit 1; }
-  kubectl -n insightly logs "job/insightly-ingest-$IMAGE_TAG" --tail=15
+  JOB="job/insightly-ingest-$IMAGE_TAG"
+  # wait for success OR failure (kubectl wait alone would hang for an hour on a failed job)
+  for _ in $(seq 1 360); do
+    ok=$(kubectl -n insightly get "$JOB" -o jsonpath='{.status.succeeded}' 2>/dev/null)
+    bad=$(kubectl -n insightly get "$JOB" -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null)
+    [[ "$ok" == "1" ]] && break
+    if [[ "$bad" == "True" ]]; then
+      echo "!! ingest job failed:" >&2; kubectl -n insightly logs "$JOB" --tail=40 >&2; exit 1
+    fi
+    sleep 10
+  done
+  [[ "$ok" == "1" ]] || { echo "!! ingest job still running after 60 min" >&2; exit 1; }
+  kubectl -n insightly logs "$JOB" --tail=15
 fi
 
 echo "==> api + ui"

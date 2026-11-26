@@ -19,6 +19,9 @@ COPY app ./app
 COPY tests ./tests
 COPY evals ./evals
 COPY pytest.ini ruff.toml ./
+# Files copied from a Mac can be readable by their owner only (chmod 600);
+# make the code readable by the non-root user the container runs as.
+RUN chmod -R a+rX /app/app /app/tests /app/evals /app/pytest.ini /app/ruff.toml
 USER 10001
 
 EXPOSE 8000
